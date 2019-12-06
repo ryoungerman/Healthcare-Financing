@@ -1,4 +1,5 @@
-## Health and Wealth: Who reaps the benefits?
+## Health and Wealth: 
+## Who reaps the benefits?
 
 Follow through an analysis by Ninon Becquart, Gabrielle LaRosa, Alana McGovern, and Rebecca Youngerman as we sought to investigate how healthcare financing aroudn the globe influences health outcomes like life expectancy, child mortality, and disability-adjsuted life years.
 
