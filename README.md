@@ -3,6 +3,12 @@
 
 Follow through an analysis by Ninon Becquart, Gabrielle LaRosa, Alana McGovern, and Rebecca Youngerman as we sought to investigate how healthcare financing aroudn the globe influences health outcomes like life expectancy, child mortality, and disability-adjsuted life years.
 
+<iframe src="https://ryoungerman.shinyapps.io/ShinyWebApp/" width="100%" height="400px"></iframe>
+
+
+<iframe src="https://ryoungerman.shinyapps.io/AlanaApp/" width="100%" height="400px"></iframe>
+
+
 ### Markdown
 
 Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
@@ -35,4 +41,3 @@ Your Pages site will use the layout and styles from the Jekyll theme you have se
 
 Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
 
-<iframe src="https://ryoungerman.shinyapps.io/AlanaApp/" width="100%" height="400px"></iframe>
