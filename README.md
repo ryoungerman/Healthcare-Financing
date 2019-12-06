@@ -1,8 +1,6 @@
-## Welcome to GitHub Pages
+## Health and Wealth: Who reaps the benefits?
 
-You can use the [editor on GitHub](https://github.com/ryoungerman/Healthcare-Financing/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
-
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+Follow through an analysis by Ninon Becquart, Gabrielle LaRosa, Alana McGovern, and Rebecca Youngerman as we sought to investigate how healthcare financing aroudn the globe influences health outcomes like life expectancy, child mortality, and disability-adjsuted life years.
 
 ### Markdown
 
