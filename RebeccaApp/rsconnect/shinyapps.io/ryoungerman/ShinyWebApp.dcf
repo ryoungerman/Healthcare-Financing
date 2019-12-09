@@ -1,0 +1,13 @@
+name: ShinyWebApp
+title: ShinyWebApp
+username:
+account: ryoungerman
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1572821
+bundleId: 2650276
+url: https://ryoungerman.shinyapps.io/ShinyWebApp/
+when: 1575820990.62789
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: CountryCompare.R
