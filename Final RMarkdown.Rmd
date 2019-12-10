@@ -1,0 +1,409 @@
+---
+title: "Health and Wealth"
+author: "Ninon Becquart, Gabrielle LaRosa, Alana McGovern, and Rebecca Youngerman"
+date: "12/15/2019"
+output: html_document
+---
+
+This project was first inspired by the section of "Our World in Data" that investigates the financing of healthcare [https://ourworldindata.org/financing-healthcare]. This webpage has extensive graphics about trends in healthcare spending and how they have changed over time. As we looked at these figures we found ourselves asking the question that would guide the rest of our project: How do these differences in healthcare spending actually affect health outcomes?
+
+As we delved deeper into this question, we each used gapminder data to conduct our own analyses that would answer the following questions:
+
+- How can we compare the overall state of both health and financing across the globe and between countries?
+
+- Do countries within the same continent share similar health and economic features?
+
+- Is government spending associated with health outcomes on the national level and is this association modified by GDP/capita in that specific country?
+
+- Which countries are spending less on health and still having better health outcomes?
+
+Before we began analyzing the data, we wanted to have a centralized, cleaned dataset. Gabrielle started this process by compiling all of the health expenditure data we wanted from gapminder into one dataset. The code below shows how she did this.
+
+```{r, echo=TRUE, message=FALSE, eval=FALSE}
+library(tidyr)
+library(tidyverse)
+library(reshape2)
+library(ggplot2)
+
+
+###---Reshaping Health Expediture Indicators---##
+
+#1. Gini Coefficient
+gini<-read.csv("gini.csv")
+gini<-pivot_longer(gini, c(2:ncol(gini)))
+names(gini)<-c("country", "year","GINI_coef")
+
+
+#2. GDP/per capita
+gdp<-read.csv("ny_gdp_pcap_cd.csv")
+gdp<-pivot_longer(gdp, c(2:ncol(gdp)))
+names(gdp)<-c("country", "year", "GDP_percap")
+
+
+#3. Children and Elderly/100 adults
+child_elderly<-read.csv("children_and_elderly_per_100_adults.csv")
+child_elderly<-pivot_longer(child_elderly, c(2:ncol(child_elderly)))
+names(child_elderly)<-c("country", "year", "child_elderly_per100")
+
+
+#4. Medical Doctors per 1000 people
+doctors<-read.csv("medical_doctors_per_1000_people.csv")
+doctors<-pivot_longer(doctors, c(2:ncol(doctors)))
+names(doctors)<-c("country", "year", "doctors_per1000")
+
+#5. Government Health Spending of Total Gov. Spending
+govspending<-read.csv("government_health_spending_of_total_gov_spending_percent.csv")
+govspending<-pivot_longer(govspending, c(2:ncol(govspending)))
+names(govspending)<-c("country", "year", "govspending_percentoftotal")
+
+
+#6. Total Health Spending %
+tot_healthspend<-read.csv("total_health_spending_percent_of_gdp.csv")
+tot_healthspend<-pivot_longer(tot_healthspend, c(2:ncol(tot_healthspend)))
+names(tot_healthspend)<-c("country", "year", "total_healthspending")
+
+
+#7. Govenment Share of Health Spending
+gov_share<-read.csv("government_share_of_total_health_spending_percent.csv")
+gov_share<-pivot_longer(gov_share, c(2:ncol(gov_share)))
+names(gov_share)<-c("country", "year", "gov_share_healthspending")
+
+
+#8. Out-of-pocket share of total healthcare spending
+outofpocket<-read.csv("out_of_pocket_share_of_total_health_spending_percent.csv")
+outofpocket<-pivot_longer(outofpocket, c(2:ncol(outofpocket)))
+names(outofpocket)<-c("country", "year", "OP_spending")
+
+#9. Private share of healthcare spending %
+privateshare<-read.csv("private_share_of_total_health_spending_percent.csv")
+privateshare<-pivot_longer(privateshare, c(2:ncol(privateshare)))
+names(privateshare)<-c("country", "year", "privateshare")
+
+
+#----Merging all 9 files----#
+#health_expeditures<-merge(gini, gdp, child_elderly, doctors, govspending, tot_healthspend, gov_share, outofpocket, privateshare, by=c("country","year"))
+
+health_expeditures1<-merge(gini, gdp, by=c("country","year"))
+health_expeditures2<-merge(health_expeditures1, child_elderly, by=c("country","year"))
+health_expeditures3<-merge(health_expeditures2, doctors, by=c("country","year"))
+health_expeditures4<-merge(health_expeditures3, govspending, by=c("country","year"))
+health_expeditures5<-merge(health_expeditures4, tot_healthspend, by=c("country","year"))
+health_expeditures6<-merge(health_expeditures5, gov_share, by=c("country","year"))
+#health_expeditures7<-merge(health_expeditures6, outofpocket, by=c("country","year"))
+final<-merge(health_expeditures6, privateshare, by=c("country","year"))
+
+#---Getting rid of "X" in front of all the years----#
+final$year<-sub('.','',final$year)
+final<-final[order(final$year),]
+
+write.csv(final, "healthexpenditures.csv")
+```
+
+At this point, Gabrielle sent healthexpenditures.csv to Alana who then added the health outcome metrics from the gapminder dataset as well as a DALYs dataset from the Global Burden of Disease Collaborative Network. The code below shows how she did this.
+
+```{r echo=TRUE, message=FALSE, eval=FALSE}
+#gapminder
+start1 <- read.csv("~/Downloads/child_mortality_0_5_year_olds_dying_per_1000_born.csv")
+mort <- melt(start1, id=1)
+mort$year <- as.integer(substr(mort$variable,2,5))
+names(mort)[3] <- "child_mortality"
+mortality <- mort[c("country","year","child_mortality")]
+
+#gapminder
+start2 <- read.csv("~/Downloads/life_expectancy_years.csv")
+life <- melt(start2, id=1)
+life$year <- as.integer(substr(life$variable,2,5))
+names(life)[3] <- "life_expectancy"
+expectancy <- life[c("country","year","life_expectancy")]
+countries <- as.list(levels(life$country))
+
+#global burden of disease collaborative network
+start3 <- read.csv("~/Downloads/dalys-rate-from-all-causes.csv")
+names(start3) <- c("country","code","year","dalys")
+daly <- start3[c("country","year","dalys")]
+daly <- daly %>% filter(start3$country %in% countries)
+
+library(dplyr)
+one <- full_join(mortality,expectancy,by=c("country","year"))
+health <- full_join(one,daly,by=c("country","year"))
+health <- health %>% filter(health$year<2011 & health$year>1994) %>% mutate(country=as.factor(country))
+
+
+exp <- read.csv("~/Downloads/healthexpenditures.csv")
+close <- merge(health,exp,by=c("country","year"))
+dat <- close[,!names(close) %in% c("X","doctors_per1000")]
+
+write.csv(dat,"savingthehealthcarecrisis.csv")
+```
+
+## Rebecca's Analysis 
+We set out to answer our first question: How can we compare the overall state of both health and financing across the globe and between countries? We used the group dataset that was cleaned, as described previously, and the map_data function in R to turn the maps package into a dataframe. With this, we used the "world" data to generate the polygons for the heat map. We also added data on the population in each country. The code below shows how we wrangled the data before creating the shiny app.
+
+```{r echo=TRUE, message=FALSE, eval=FALSE}
+library(maps)
+health <- read.csv("savingthehealthcarecrisis.csv")
+pop_total <- read.csv("population_total.csv")
+names(pop_total) <- substring(names(pop_total), 2)
+colnames(pop_total)[colnames(pop_total)=="ountry"] <- "country"
+
+
+
+#gather the data -- formatting for the join
+tidy_pop <- pop_total %>%
+    gather(year, population, '1800':'2100') 
+
+
+#restrict population data to the appropriate timeframe
+tidy_pop <- tidy_pop[ which(tidy_pop$year >= 1995
+                            & tidy_pop$year <= 2010), ]
+
+#change datatype so it matches for the join
+tidy_pop$year <- as.numeric(tidy_pop$year)
+head(tidy_pop)
+
+#join the datasets
+health_overall <- left_join(health, tidy_pop, by= c("country", "year"))
+
+world_map <- map_data("world")
+
+world_map <-
+    world_map %>%
+    rename(country = region)
+
+health_overall <-
+    health_overall %>%
+    rename(Child.Mortality = child_mortality, DALYs = dalys, GINI.Coefficient = GINI_coef, 
+           GDP.Per.Capita = GDP_percap, Total.Health.Spending = total_healthspending, Life.Expectancy = life_expectancy)
+
+
+#I determined which countries to alter by checking which countries were in the health_overall dataset, 
+#but not in the world_map dataset - I think looked at those that were in world_health, but not health_overall
+#and changed the names in health_overall to match up with the spelling in the other for corresponding countries
+#Using:
+#sort(setdiff(health_overall$country,world_map$country)) -- to see what was in health_overall and not world_map
+#sort(setdiff(world_map$country,health_overall$country)) -- to see what was in world_map and not health_overall
+
+health_overall$country[which(health_overall$country=="United States")] <- "USA"
+health_overall$country[which(health_overall$country=="Congo, Dem. Rep.")] <- "Democratic Republic of the Congo"
+
+world_map$country[which(world_map$country=="Aruba")] <- "Antigua and Barbuda"
+world_map$country[which(world_map$country=="Barbuda")] <- "Antigua and Barbuda"
+world_map$country[which(world_map$country=="South Sudan")] <- "Sudan"
+health_overall$country[which(health_overall$country=="Congo, Rep.")] <- "Republic of Congo"
+health_overall$country[which(health_overall$country=="Cote d'Ivoire")] <- "Ivory Coast"
+health_overall$country[which(health_overall$country=="Kyrgyz Republic")] <- "Kyrgyzstan"
+health_overall$country[which(health_overall$country=="Lao")] <- "Laos"
+health_overall$country[which(health_overall$country=="Micronesia, Fed. Sts.")] <- "Micronesia"
+health_overall$country[which(health_overall$country=="United Kingdom")] <- "UK"
+
+
+
+health_map <- left_join(health_overall, world_map, by = "country")
+
+```
+
+After additional exploratory analysis - looking for compelling scatterplots, histograms, etc. it was determined that there is a lot to explore that a user would likely want more agency to explore themselves. With this realization, we moved forward with a shiny app featuring a dynamic map to allow for exploration across factors that could be interpreted as a whole-world comparison. After creating this dynamic visualization, along with measure descriptions and additional information links that correspond, we felt that a user might want to explore countries that they are interested in more granularity. This motivated a line graph showing how two countries changed over time for one of the six factors - total population, child mortality, life expectancy, the Gini coefficient, GDP per capita, total health spending, and percent of government spending toward healthcare. We chose to include these two visualizations on the same page in the app so that a user could refer back to the world map for context after a more specific exploration comparing two countries. 
+
+#### Conclusions from the Exploratory Analysis
+Based on the world map visualization over time we came to several conclusions to inform later analyses:
+
+* The total population in China and India is overwhelmingly larger than most of the other nations. Some other countries have notably large populations as well including Russia, America, and Brazil. Most other measures account for population size, but this is still something to consider.
+* Child mortality is the most severe (highest) in Africa as expected. Some nations in northern Africa don't have rates that are as staggering, though.  Some of southeast Asia is also experiencing relatively high child mortality through this time frame. 
+* Life expectancy, as expected, follows an inverse trend from what we see with child mortality.
+* Countries with poor life expectancy are, generally, also doing poorly in DALYs 
+* The Gini coefficient is greatest in Brazil and very southern Africa. The entire world is less staggered in their Gini coefficients than many other measures (in the visualization most are pink-ish on the white-red scale)
+* GDP is greatest in America, Canada, eastern Europe, Japan, and Australia.
+* A large majority of the world experiences similar measures of percent spending on healthcare. Over time, as we move closer to 2010 (our most recent year), America sticks out more and more with greater spending on healthcare. 
+* The noticeably large percent that America spends on healthcare is seen even more clearly with total health spending, where it is a clear outlier - also increasing over time. 
+
+
+
+## Gabrielle's Analysis
+The goal of this analysis is to use Principal Component Analysis (PCA) as a dimension reduction technique for the gapminder data. **We are interested in uncovering broad patterns between location (continent) and the health/economic features of a region**. Thus, online resources and a textbook [Introduction to Statistical Learning] served as an inspiration for using Principal Component Analysis as a dimension reduction technique. In addition, Dr. Mattie's input and her provided old notes on PCA was helpful for inspiring our analyses.
+
+If the health spending and health outcome features of a country is related to it's location, then we expect PCA to uncover that the data is clustered by continent once plotted on it's first and second principle components. This is an unsupervised learning technique, meaning that PCA reduces the dimensions of out data without using "continent" information. Then, we can go back to the PCA plot, label points by continent, and see if the data has clustering based on continent. Essentially, this will allow us to better visualize what is going on with our dat without having to plot an absurd number of scatterplots. We are trying to reduce the number of variables in a dataset while preserving as much information as possible and extracting patterns in the data.
+
+PCA will allow us to derive a low dimensional feature set from 8 different covariates relating to country's health spending and health status. From there, we can plot a scatterplot of the first two principal components, which presents a better method for visualizing n observations on p features without having p(p-1)/2 scatterplots.
+
+From the gapminder data are using the following features that characterize the health and economic status of a country:
+$X_1$ = Child Mortality Rate,
+$X_2$ = Life Expectancy,
+$X_3$ = DALYs,
+$X_4$ = GINI Coefficient,
+$X_5$ = GDP per capita,
+$X_6$ = Child/Elderly Ratio,
+$X_7$ = Government Spending (% of total),
+$X_8$ = Total Health Spending,
+$X_9$ = Government Share of Health Spending,
+$X_10$ = Private Share of Health Spending.
+
+#### Principal Component Analysis (PCA): Methods and Results
+In R, we can implement Principal Component Analysis using the prcomp function from the stats package. We feed the prcomp function a data matrix containing the data information without the continent information included. Then, the calculation is done using singular value decomposition on this data matrix and returns the standard deviations of the principal components. 
+
+Once prcomp is computed, we can take the information from the first two principal components, where the first principal component explains the largest amount of variability in the data, while the second principal component explains the next largest amount of variability. In addition, we can extract the loadings of the PCA, which are the coefficients of the linear combination of features from the principal component analysis. We will repeat this process for both 1995 and 2010, and examine if different patterns emerge after a 15-year time lapse.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#loading necessary libraries
+library(tidyverse)
+library(ggplot2)
+library(gapminder)
+library(cluster)
+library(MASS)
+library(dplyr)
+library(magrittr)
+
+#Reading in data (after my (Gabrielle) and Alana's data cleaning)
+health <- read.csv("savingthehealthcarecrisis.csv")
+
+#The below code for labeling our data with continent information was helped with from Rebecca :)
+
+#Reading in the gapminder data from the R gapminder library
+data(gapminder)
+
+#Selecting only the country and continent information from the gapminder data
+gapminder <- gapminder %>%
+  dplyr::select(country, continent)
+ 
+#Joining continent information to our data ("health")
+new_health <- left_join(health, gapminder, by = c("country"))
+
+#Sorting and cleaning data
+sort(setdiff(new_health$country,gapminder$country))
+new_health$continent[] <- lapply(new_health$continent, as.character)
+
+
+#give a continent to those different in gapminder
+new_health$continent[new_health$country=="Afghanistan"] <- "Asia"
+new_health$continent[new_health$country== "Myanmar"] <- "Asia"
+new_health$continent[new_health$country== "Sao Tome and Principe"] <- "Africa"
+new_health$continent[new_health$country== "Somalia"] <- "Africa"
+new_health<-unique(new_health[,])
+new_health<-new_health[complete.cases(new_health),]
+
+```
+
+
+#### Year 1995 Analysis
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Loading necessary libraries:
+library(devtools)
+library(ggplot2)
+library(ggfortify)
+
+#Creating subset of data that contains only 1995 data
+health_1995<-new_health[new_health$year==1995,]
+
+#Cleaning data of NAs
+health_1995<-health_1995[complete.cases(health_1995),]
+
+#Selecting our predefined features of interest, without continent information
+df_1995_unlabeled<-health_1995[c("child_mortality","life_expectancy", "dalys", "GINI_coef", "GDP_percap", "child_elderly_per100", "govspending_percentoftotal", "total_healthspending", "gov_share_healthspending", "privateshare")]
+
+#Selecting our predefined features of interest, with continent information
+df_1995_labeled<-health_1995[c("child_mortality","life_expectancy", "dalys", "GINI_coef", "GDP_percap", "child_elderly_per100", "govspending_percentoftotal", "total_healthspending", "gov_share_healthspending", "privateshare", "continent")]
+
+
+#pca<-prcomp(df_1995_unlabeled, scale.=TRUE)
+
+#Performing PCA on the UNLABELED data
+pca<-prcomp(df_1995_unlabeled)
+
+#Plotting the data on PC1 vs PC2, then going back and coloring by continent
+autoplot(pca, loadings=FALSE, loadings.label=FALSE, data=df_1995_labeled, colour='continent', main="Principal Component Analysis, 1995")
+
+#Plotting the data on PC1 vs PC2, then going back and coloring by continent, and adding loadings vectors onto plot
+autoplot(pca, loadings=TRUE, loadings.label=TRUE, data=df_1995_labeled, colour='continent', main="Principal Component Analysis, 1995") 
+
+#Cluster Analysis for 1995:
+autoplot(pam(df_1995_labeled[-8],3), frame=TRUE, frame.type='norm', main="Cluster Analysis for 1995")
+
+```
+
+
+
+#### Year 2010 Analysis
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#loading required libraries
+library(devtools)
+library(ggplot2)
+library(ggfortify)
+
+#Creating a subset of the 2010 data
+health_2010<-new_health[new_health$year==2010,]
+
+#Selecting our features of interest without continent information
+df_2010_unlabeled<-health_2010[c("child_mortality","life_expectancy", "dalys", "GINI_coef", "GDP_percap", "child_elderly_per100", "govspending_percentoftotal", "total_healthspending", "gov_share_healthspending", "privateshare")]
+
+#Selecting our feature information with continent information
+df_2010_labeled<-health_2010[c("child_mortality","life_expectancy", "dalys", "GINI_coef", "GDP_percap", "child_elderly_per100", "govspending_percentoftotal", "total_healthspending", "gov_share_healthspending", "privateshare", "continent")]
+
+
+##PCA for 2010:
+#pca<-prcomp(df_2010_unlabeled, scale.=TRUE)
+pca<-prcomp(df_2010_unlabeled)
+
+#Plotting pca results of PC1 and PC2 then coloring by continent information
+autoplot(pca, loadings=FALSE, loadings.label=FALSE, data=df_2010_labeled, colour='continent', main="Principal Component Analysis,2010")
+
+#Plotting pca results of PC1 and PC2 then coloring by continent information and adding loadings vectors
+autoplot(pca, loadings=TRUE, loadings.label=TRUE, data=df_2010_labeled, colour='continent', main="Principal Component Analysis, 2010") ##loadings included in this one
+
+#Cluster Analysis for 2010:
+autoplot(pam(df_2010_labeled[-8],3), frame=TRUE, frame.type='norm', main="Cluster Analysis for 2010")
+
+```
+
+#### Conclusions from PCA
+In the Principal Component Analysis for the 1995 gapminder data, we see that the first two principal components explain 100% of the variability of the data, with the first principal component explaining 91% and the second principal component explaining 9%. Thus, it appears the PCA successfully reduced the 1995 data down to 2 dimensions. When examining the PCA plot, we are looking for any distinct clustering by continent. In the 1995 data, we see that Europe and Africa form the two most distinct clusters. However, these are not distinct clusters since there are still a few data points from other continents that are not separable from the African or European clustering. In addition, the Americas seem to be forming a slight cluster, with points from Asia and Oceania being more scattered.
+
+There is a similar pattern from the 2010 data, with the first principal component explaining 78.12% of the variability in the data and the second principal component explaining 21.88% of the variability in the data. We see again the pattern of Europe and Africa forming the two most distinct clusters.
+
+In addition, both the 1995 and 2010 PCA plots include the loading vectors. This shows us that the DALYs and GDP percent of total spending features are the variables that are defining the clusters the most, since the loadings are the weights of the linear combination of the variables in PCA.
+
+It is also of note that performing cluster analysis using the "partitioning around medoids" technique shows us that there are three general clusters in the data for both 1995 and 2010. When observing both the cluster analysis for 1995 and 2010 along side their respective PCA plots, we see that these clusters loosely correspond to Africa, the Americas, and Europe, while Oceania and Asia are not forming distinct clusters. This tells us that given information on health and economic features of a country, we may be able to predict if this country falls in Africa, the Americas, or Europe, but we are less likely to know if this country is location in Oceania or Asia.
+
+Overall, from the unsupervised clustering technique of Principal Component Analysis (PCA), we see that after decomposing the data, the continents are somewhat clustering together but into distinct, fully separable clusters based on health and economic features of the regions.
+
+## Alana's Analysis
+In this section, we asked a more specific question: Is government spending associated with health outcomes on the national level and is this association modified by GDP/capita in that specific country? First, we had to pick what variable we wanted to use to represent the very broad category of "health outcomes". We felt that Disability-Adjusted Life Years (DALYs) was the most holistic national health outcome variable at our disposal. DALYs are a measure of the overall disease burden in a country, expressed as the number of years lost due to poor health, disability, or early death. We also had many different ways to quantify healthcare spending, some of which were raw numbers, such as government health spending/person, and some of which were proportions, such as proportion of total government expenditure that has been spent on health. We decided that the best way to directly compare the influence of government healthcare spending among countries with different income levels would be to use variables on the proportion scale. The specific variables we chose to use are percentage government health spending out of total government spending, percentage of total health expenditure that was paid for by the government. These variables inform us about two distinct features of the government's role in healthcare spending.
+
+Using our cleaned data, we created "Low", "Lower Middle", "Upper Middle", and "High" income categories using GDP/capita-based guidelines from the World Bank. Next we looked at scatterplots assessing the associations between DALYs and the government healthcare spending predictors. We quickly found that looking at the data for every year at once made it difficult to see any association, so we wanted to be able to look at the scatterplots for any year, which is what led us to create the shiny app (which the code is for below).  After observing from these plots that a linear association may be present, we ran 2 regression models for each of the 2 predictors. While all models adjusted for country, year, and GDP/capita, one of the two models for each predictors included a term to measure any effect modification that GDP/capita may have on the association between our predictor and outcome. For one of our predictors, effect modification was detected and in the other effect modification was not. Note that the RMarkdown does not include the regression output because each model has over 170 coefficients, which would be excessive to print, but the only coefficient terms we care about are the intercept, the coefficient on the predictor of interest, and the coefficient on the interaction between the predictor of interest and GDP/capita. More details including plots and regression interpretations are embedded within the shiny app. This app can be viewed in our repository.
+
+```{r echo=TRUE, message=FALSE, eval=FALSE}
+library(ggplot2)
+library(ggthemes)
+library(ggpubr)
+library(plyr)
+library(dplyr)
+library(scales)
+library(reshape2)
+library(forcats)
+library(ggfortify)
+library(shiny)
+
+dat <- read.csv("savingthehealthcarecrisis.csv")
+final <- dat %>% filter(!is.na(GDP_percap)&!is.na(total_healthspending)&!is.na(dalys))
+final$income_level[final$GDP_percap<1026] <- "Low" 
+final$income_level[final$GDP_percap<4036 & final$GDP_percap>=1026] <- "Lower Middle"
+final$income_level[final$GDP_percap<12476 & final$GDP_percap>=4036] <- "Upper Middle"
+final$income_level[final$GDP_percap>=12476] <- "High"
+
+# Association between DALYs and the percent of total goverment spending that is spent on healthcare
+healthspending <- lm(dalys~(govspending_percentoftotal)+GDP_percap+year+country, data=final)
+healthspending.int <- lm(dalys~(govspending_percentoftotal)*GDP_percap+year+country, data=final)
+
+#Association between DALYs and percent of total healthcare spending that is spent by the government
+govshare <- lm((dalys)~gov_share_healthspending+GDP_percap+year+country,data=final)
+govshare.int <- lm((dalys)~gov_share_healthspending*GDP_percap+year+country,data=final)
+```
+
+## Ninon's Analysis
+We know that the United States spends a lot on healthcare, certainly more than other, similar countries. Yet, we do not see similar healthcare outcomes, including in terms of life expectancy and DALYs. What countries are spending less and doing more?
+
+For this analysis, we started with the following questions: What countries stand out as having dramatic changes in their life expectancy and/or DALYs over time? Do we see a relationship between that and government healthcare spending or total healthcare spending in general? If so, can we learn from these countries and apply this knowledge to the United States?
+
+We realized that the dataset we chose only provides information on the past 15 years, so looking into countries we called “big changers” would be difficult. In addition to that, we realized the countries that we measured as being “big changers” were also countries that had the most progress to make, and some of those countries had populations that experienced events such as genocide. Rwanda would be an example of that. Therefore, they would not necessarily be good choices for comparison with the United States, because the changes in life expectancy in those big changers would most likely be primarily linked to extremely impactful events, rather than healthcare spending. Thus, we went back to the drawing board and looked into countries that were spending their money efficiently. This caused us to find Singapore, which intrigued us. We had never heard the country mentioned before, because our focus on healthcare can be quite Eurocentric, and yet they were spending much less, had high life expectancy and low DALYs, and --later, we realized-- the highest life expectancy currently, in 2019.
+
+Most of our early visualizations involved scatter plots or simple line plots depicting all the various countries, or several countries of interest, and how they compared on life expectancy, DALYs, total healthcare spending, government share of healthcare spending, government spending on healthcare as a percent of total spending, and out of pocket spending. We used summary statistics to investigate the mean values of these covariates over all time, as well as rates of change for DALYs, life expectancy, and total healthcare spending. This allowed us to get a general overview of what countries stood out as having high or low values in each of these variables.
+
+Our final analysis focused on comparing the United States to European countries we typically see as having high performing health care systems and outcomes, but also to Singapore, which we identified as an outlier for its healthcare spending efficiency. This mostly revolved around making a shiny app that depicted a line plot of each country, with countries of interested highlighted in vivid color. This app can be viewed in our repository.

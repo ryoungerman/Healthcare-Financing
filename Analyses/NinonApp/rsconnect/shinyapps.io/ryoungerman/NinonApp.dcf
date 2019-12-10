@@ -1,0 +1,12 @@
+name: NinonApp
+title: NinonApp
+username:
+account: ryoungerman
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1572946
+bundleId: 2647784
+url: https://ryoungerman.shinyapps.io/NinonApp/
+when: 1575674241.51944
+asMultiple: FALSE
+asStatic: FALSE
